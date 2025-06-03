@@ -1,29 +1,30 @@
 from textblob import TextBlob
-import pandas as pd
 import nltk
-from nltk.sentiment import SentimentIntensityAnalyzer
+import pandas as pd
+from typing import Dict, Any
 
-nltk.download(['vader_lexicon', 'punkt'])
+nltk.download('punkt')
 
-class SentimentAnalyzer:
-    def __init__(self):
-        self.sia = SentimentIntensityAnalyzer()
-    
-    def analyze_sentiment(self, text: str) -> dict:
-        """Analyze sentiment using multiple methods"""
-        blob = TextBlob(str(text))
-        vader_scores = self.sia.polarity_scores(str(text))
-        
-        return {
-            'textblob_polarity': blob.sentiment.polarity,
-            'textblob_subjectivity': blob.sentiment.subjectivity,
-            'vader_compound': vader_scores['compound'],
-            'vader_positive': vader_scores['pos'],
-            'vader_negative': vader_scores['neg'],
-            'vader_neutral': vader_scores['neu']
-        }
-    
-    def add_sentiment_features(self, df: pd.DataFrame, text_col: str = 'headline') -> pd.DataFrame:
-        """Add sentiment features to dataframe"""
-        sentiment_df = df[text_col].apply(lambda x: pd.Series(self.analyze_sentiment(x)))
-        return pd.concat([df, sentiment_df], axis=1)
+def calculate_sentiment(text: str) -> Dict[str, Any]:
+    """Calculate sentiment metrics for a given text"""
+    blob = TextBlob(str(text))
+    return {
+        'polarity': blob.sentiment.polarity,
+        'subjectivity': blob.sentiment.subjectivity,
+        'word_count': len(blob.words)
+    }
+
+def add_sentiment_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Add sentiment analysis columns to dataframe"""
+    sentiment_df = df['headline'].apply(
+        lambda x: pd.Series(calculate_sentiment(x))
+    )
+    return pd.concat([df, sentiment_df], axis=1)
+
+def aggregate_daily_sentiment(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate sentiment scores by day"""
+    return df.groupby('date_only').agg({
+        'polarity': ['mean', 'std', 'count'],
+        'subjectivity': 'mean',
+        'daily_return': 'last'
+    }).reset_index()
